@@ -13,6 +13,39 @@ docker rm -f $APPNAME
 # Remove frontend container if exists
 docker rm -f $APPNAME-frontend
 
+<% if(typeof installAdditional === "object")  { %>
+# We don't need to fail the deployment because of a docker hub downtime
+set +e
+docker build -t meteorhacks/meteord:app - << EOF
+FROM meteorhacks/meteord:base
+RUN apt-get install <%- installAdditional.join(' ') %> -y
+EOF
+set -e
+
+if [ "$USE_LOCAL_MONGO" == "1" ]; then
+  docker run \
+    -d \
+    --restart=always \
+    --publish=$PORT:80 \
+    --volume=$BUNDLE_PATH:/bundle \
+    --env-file=$ENV_FILE \
+    --link=mongodb:mongodb \
+    --hostname="$HOSTNAME-$APPNAME" \
+    --env=MONGO_URL=mongodb://mongodb:27017/$APPNAME \
+    --name=$APPNAME \
+    meteorhacks/meteord:app
+else
+  docker run \
+    -d \
+    --restart=always \
+    --publish=$PORT:80 \
+    --volume=$BUNDLE_PATH:/bundle \
+    --hostname="$HOSTNAME-$APPNAME" \
+    --env-file=$ENV_FILE \
+    --name=$APPNAME \
+    meteorhacks/meteord:app
+fi
+<% } else { %>
 # We don't need to fail the deployment because of a docker hub downtime
 set +e
 docker pull meteorhacks/meteord:base
@@ -41,6 +74,7 @@ else
     --name=$APPNAME \
     meteorhacks/meteord:base
 fi
+<% } %>
 
 <% if(typeof sslConfig === "object")  { %>
   # We don't need to fail the deployment because of a docker hub downtime
